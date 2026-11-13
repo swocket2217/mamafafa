@@ -201,38 +201,68 @@ p, li, [data-testid="stSelectbox"] {font-size: 1.3rem;}
 [data-testid="stWidgetLabel"] p, .stRadio label p, .stCheckbox label p {font-size: 1.3rem;}
 .stTextInput input, .stTextArea textarea {font-size: 1.35rem;}
 [data-testid="stMetricValue"] {font-size: 1.7rem;}
-.block-container {max-width: 900px; padding-top: 2rem;}
+.block-container {max-width: 740px; padding-top: 1.2rem;}
+h1, h2, h3 {text-align:center;}
+[data-testid="stWidgetLabel"] {justify-content:center;}
+@media(max-width:600px) { .block-container {padding-left:1rem;padding-right:1rem;} .stButton button p {font-size:1.15rem;} }
 </style>""", unsafe_allow_html=True)
-st.title(f"🌾 {FARM}")
-st.write("우리 농작물, 수량 확인부터 집 앞 배송 예약까지 간편하게.")
+def go(page):
+    st.session_state.page = page
+
+
+def month_picker():
+    if "view_month" not in st.session_state:
+        st.session_state.view_month = date.today().replace(day=1)
+    def move(delta):
+        current = st.session_state.view_month
+        n = current.year * 12 + current.month - 1 + delta
+        st.session_state.view_month = date(n // 12, n % 12 + 1, 1)
+    left, middle, right = st.columns([1, 2, 1])
+    left.button("◀ 이전", on_click=move, args=(-1,), use_container_width=True)
+    current = st.session_state.view_month
+    middle.markdown(f"<h3 style='text-align:center'>{current.year}년 {current.month}월</h3>", unsafe_allow_html=True)
+    right.button("다음 ▶", on_click=move, args=(1,), use_container_width=True)
+    return current
+
+
+def in_month(crop, month):
+    last = date(month.year, month.month, calendar.monthrange(month.year, month.month)[1])
+    return crop["start"] <= last.isoformat() and crop["end"] >= month.isoformat()
+
+
+st.markdown(f"<h1 style='text-align:center'>🌾 {html.escape(FARM)}</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center'>우리 밭 먹거리, 집에서 편하게 예약하세요.</p>", unsafe_allow_html=True)
+if not st.session_state.get("started"):
+    st.markdown("<div style='text-align:center;padding:35px 12px;background:#edf3e8;border-radius:24px'><div style='font-size:90px'>🌾</div><h2>밭에서 집까지</h2><p>작물 고르기 → 수량 고르기 → 집 주소 입력</p></div>", unsafe_allow_html=True)
+    if st.button("시작하기", type="primary", use_container_width=True):
+        st.session_state.started = True
+        st.rerun()
+    st.stop()
 if DEMO:
-    st.warning("체험 모드 · 가격·재고·일정은 예시입니다. 실제 이름·전화번호·주소를 입력하지 마세요. 데이터는 재시작하면 사라집니다.")
-else:
-    st.caption("가격·재고·예약 일정은 농장 관리자가 등록한 내용입니다.")
+    st.warning("체험용입니다. 실제 개인정보는 넣지 마세요. 다시 시작하면 저장 내용이 사라집니다.")
 if "flash" in st.session_state:
     st.success(st.session_state.pop("flash"))
-if st.button("📅 작물 예약·배송 달력", use_container_width=True):
-    st.session_state["navigation"] = "📅 예약·배송 달력"
-with st.sidebar:
-    st.header("🌾 쉬운 메뉴")
-    page = st.radio("원하는 메뉴를 눌러 주세요", ["🌾 작물 종류", "📦 내 예약·구매", "👤 로그인·내 정보", "📅 예약·배송 달력"], key="navigation")
-    st.divider()
-    st.write(f"☎ {CONTACT}")
-    st.caption("결제는 이 앱에서 진행하지 않습니다. 배송비와 결제 방법은 농장에 확인해 주세요.")
-    if st.button("메뉴 사용 안내", use_container_width=True):
-        st.info("① 로그인 → ② 작물 선택 → ③ kg 선택 → ④ 주소 확인 → ⑤ 예약 확정")
-
-
+st.button("📅 예약·배송 달력", on_click=go, args=("달력",), use_container_width=True)
+row1 = st.columns(2)
+row1[0].button("🌿 작물 보기", on_click=go, args=("작물",), use_container_width=True)
+row1[1].button("🛒 구매 예약", on_click=go, args=("구매",), use_container_width=True)
+row2 = st.columns(2)
+row2[0].button("📦 내 주문", on_click=go, args=("주문",), use_container_width=True)
+row2[1].button("👤 내 정보", on_click=go, args=("정보",), use_container_width=True)
+page = st.session_state.get("page", "작물")
 uid = st.session_state.get("uid")
 user = next(iter(read_rows(users, users.c.id == uid)), None) if uid else None
 all_crops = sorted(read_rows(crops), key=lambda c: c["id"])
 is_admin = bool(user and ADMIN_UID and hmac.compare_digest(user["id"], ADMIN_UID))
-admin_open = st.sidebar.checkbox("🔧 전체 예약 관리") if is_admin else False
+if is_admin:
+    st.button("🔧 전체 주문 관리", on_click=go, args=("관리",), use_container_width=True)
+admin_open = is_admin and page == "관리"
+st.divider()
 
 
 def require_login():
     if not user:
-        st.info("왼쪽 메뉴의 ‘👤 로그인·내 정보’에서 먼저 로그인해 주세요. 휴대폰에서는 왼쪽 위 메뉴를 열어 주세요.")
+        st.info("위의 ‘👤 내 정보’에서 먼저 로그인해 주세요.")
         return False
     return True
 
@@ -242,12 +272,12 @@ def account_page():
     if user:
         st.success(f"{user['name']} 님, 반갑습니다.")
         st.write(f"전화번호: {user['phone']}")
-        st.caption("계정 ID (관리자 지정 시 사용)")
-        st.code(user["id"], language=None)
+        with st.expander("관리자 설정용 내 계정 번호"):
+            st.code(user["id"], language=None)
         if is_admin:
-            st.success("농장 관리자 계정입니다. 왼쪽 ‘전체 예약 관리’를 이용하세요.")
+            st.success("관리자입니다. 위의 ‘전체 주문 관리’를 누르세요.")
         with st.form("profile"):
-            address = st.text_area("기본 배송 주소 (우편번호·도로명·상세주소)", value=user["address"], max_chars=300)
+            address = st.text_area("우리 집 주소 (동·호수까지)", value=user["address"], max_chars=300)
             if st.form_submit_button("주소 저장", use_container_width=True):
                 with engine.begin() as con:
                     con.execute(update(users).where(users.c.id == uid).values(address=address.strip()))
@@ -301,8 +331,13 @@ def account_page():
 
 
 def crop_page():
-    st.header("🌾 어떤 작물을 예약할까요?")
-    selected = st.selectbox("작물 고르기", all_crops, format_func=lambda c: f"{c['icon']} {c['name']}")
+    st.header("🛒 구매 예약")
+    month = month_picker()
+    available = [c for c in all_crops if in_month(c, month)]
+    if not available:
+        st.info("이 달에 예약할 작물이 없어요. 다른 달을 눌러 주세요.")
+        return
+    selected = st.selectbox("작물 고르기", available, format_func=lambda c: f"{c['icon']} {c['name']}")
     if not selected:
         return
     c = selected
@@ -321,12 +356,11 @@ def crop_page():
         return
     kg = st.selectbox("몇 kg 구매하시겠어요?", range(5, min(c["stock"], 100) + 1, 5), format_func=lambda x: f"{x} kg")
     st.subheader(f"작물 금액: {kg * c['price']:,}원")
-    st.caption("배송비 별도 · 실제 결제 및 배송비는 농장 안내 후 확정됩니다. 한 번에 최대 100kg까지 예약할 수 있습니다.")
+    st.caption("배송비 별도 · 결제는 농장에 문의하세요.")
     if require_login():
         with st.form("reservation", clear_on_submit=False):
             st.write(f"받으실 분: {user['name']} / {user['phone']}")
-            address = st.text_area("배송 주소 (우편번호·도로명·건물 동·호수까지)", value=user["address"], max_chars=300)
-            st.caption("이 주소를 내 기본 주소와 이번 예약 배송지로 저장합니다.")
+            address = st.text_area("받을 주소 (동·호수까지)", value=user["address"], max_chars=300)
             agree = st.checkbox(f"{c['name']} {kg}kg 예약 내용과 배송 주소를 확인했습니다.")
             if st.form_submit_button("예약 확정하기", type="primary", use_container_width=True):
                 if len(address.strip()) < 8 or not agree:
@@ -372,11 +406,11 @@ def my_orders():
 def calendar_page():
     st.header("📅 예약·배송 달력")
     st.info("🌿 봄: 두릅 · 🍑 여름: 복숭아 · 🌾 가을: 쌀·감·고춧가루 수확·가공 (대추 일정은 농장 확인)")
-    st.caption("아래 정확한 날짜는 농장 등록 일정입니다. 초기 날짜는 예시이며 매년 관리자에서 갱신하세요.")
-    month = st.date_input("보고 싶은 달", value=date.today())
-    selected = st.selectbox("작물", [None] + all_crops,
+    month = month_picker()
+    available = [c for c in all_crops if in_month(c, month) or c["delivery"][:7] == month.strftime("%Y-%m")]
+    selected = st.selectbox("작물", [None] + available,
                             format_func=lambda c: "전체 작물" if c is None else f"{c['icon']} {c['name']}")
-    shown = [selected] if selected else all_crops
+    shown = [selected] if selected else available
     grid = calendar.Calendar(firstweekday=0).monthdatescalendar(month.year, month.month)
     cells = []
     for week in grid:
@@ -391,11 +425,10 @@ def calendar_page():
                         events.append(f"🚚 {html.escape(c['name'])}")
             color = "#F0F6E9" if day == date.today() else "#FFFFFF"
             label = str(day.day) if day.month == month.month else ""
-            line.append(f'<td style="background:{color};padding:6px;border:1px solid #CCD7C5;vertical-align:top"><b>{label}</b><br><span style="font-size:18px">' + "<br>".join(events) + "</span></td>")
+            line.append(f'<td style="background:{color};padding:6px;border:1px solid #CCD7C5;vertical-align:top"><b>{label}</b><br><span style="font-size:16px">' + "<br>".join(events) + "</span></td>")
         cells.append("<tr>" + "".join(line) + "</tr>")
-    st.markdown(f"### {month.year}년 {month.month}월")
-    st.caption("‘예약’은 접수 가능한 날, 🚚는 배송 예정일입니다. 아래 목록에서도 크게 확인할 수 있습니다.")
-    st.markdown('<div style="overflow-x:auto"><table style="width:100%;min-width:550px;border-collapse:collapse;table-layout:fixed"><thead><tr>' +
+    st.write("예약: 주문 가능한 날 · 🚚: 보내드릴 예정일")
+    st.markdown('<div style="overflow-x:auto"><table style="width:100%;min-width:380px;border-collapse:collapse;table-layout:fixed"><thead><tr>' +
                 "".join(f"<th>{day}</th>" for day in ["월", "화", "수", "목", "금", "토", "일"]) +
                 "</tr></thead><tbody>" + "".join(cells) + "</tbody></table></div>", unsafe_allow_html=True)
     for c in shown:
@@ -462,14 +495,31 @@ def admin_page():
                         st.rerun()
 
 
+def browse_page():
+    st.header("🌿 우리 농작물")
+    month = month_picker()
+    visible = [c for c in all_crops if in_month(c, month)]
+    if not visible:
+        st.info("이 달에 예약할 작물이 없어요. 다른 달을 눌러 주세요.")
+    for c in visible:
+        with st.container(border=True):
+            st.subheader(f"{c['icon']} {c['name']}")
+            st.write(f"1kg {c['price']:,}원 · 남은 수량 {c['stock']:,}kg")
+            st.write(f"예약 {c['start']} ~ {c['end']}")
+            st.write(f"🚚 배송 예정 {c['delivery']}")
+    if visible:
+        st.button("🛒 구매 예약하기", on_click=go, args=("구매",), type="primary", use_container_width=True)
+
 try:
     if admin_open:
         admin_page()
-    elif page == "🌾 작물 종류":
+    elif page == "작물":
+        browse_page()
+    elif page == "구매":
         crop_page()
-    elif page == "📦 내 예약·구매":
+    elif page == "주문":
         my_orders()
-    elif page == "👤 로그인·내 정보":
+    elif page == "정보":
         account_page()
     else:
         calendar_page()
