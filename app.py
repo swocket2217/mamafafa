@@ -238,8 +238,7 @@ if not st.session_state.get("started"):
         st.session_state.started = True
         st.rerun()
     st.stop()
-if DEMO:
-    st.warning("체험용입니다. 실제 개인정보는 넣지 마세요. 다시 시작하면 저장 내용이 사라집니다.")
+# 체험 모드 안내 배너는 요청에 따라 화면에서 숨깁니다.
 if "flash" in st.session_state:
     st.success(st.session_state.pop("flash"))
 st.button("📅 예약·배송 달력", on_click=go, args=("달력",), use_container_width=True)
@@ -349,8 +348,7 @@ def crop_page():
         st.write(f"📅 예약: {c['start']} ~ {c['end']}")
         st.write(f"🚚 배송 예정: {c['delivery']} (농장 사정에 따라 변동 가능)")
     if not c["start"] <= date.today().isoformat() <= c["end"]:
-        st.info("지금은 예약 기간이 아닙니다. 달력에서 예약 기간을 확인해 주세요.")
-        return
+        return  # 예약 기간 밖의 접수는 계속 차단합니다.
     if c["stock"] < 5:
         st.warning("5kg 단위로 예약할 수 있는 수량이 없습니다.")
         return
@@ -405,7 +403,7 @@ def my_orders():
 
 def calendar_page():
     st.header("📅 예약·배송 달력")
-    st.info("🌿 봄: 두릅 · 🍑 여름: 복숭아 · 🌾 가을: 쌀·감·고춧가루 수확·가공 (대추 일정은 농장 확인)")
+    # 계절 안내 배너는 요청에 따라 숨깁니다.
     month = month_picker()
     available = [c for c in all_crops if in_month(c, month) or c["delivery"][:7] == month.strftime("%Y-%m")]
     selected = st.selectbox("작물", [None] + available,
