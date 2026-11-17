@@ -101,6 +101,13 @@ def database(url):
                 stock=stock, price=price, start=date(year,sm,sd).isoformat(),
                 end=date(year,em,ed).isoformat(), delivery=date(year,dm,dd).isoformat()))
             next_id += 1
+    # 테스트용: 모든 작물의 예약 기간을 올해 초부터 다음 해 말까지 확장합니다.
+    # 실제 판매 전에는 이 블록을 삭제하고 관리자 화면에서 실제 일정을 설정하세요.
+    with engine.begin() as con:
+        con.execute(update(crops).values(
+            start=date(year, 1, 1).isoformat(),
+            end=date(year + 1, 12, 31).isoformat(),
+            delivery=date(year + 2, 1, 7).isoformat()))
     return engine
 
 
