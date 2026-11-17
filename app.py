@@ -212,6 +212,17 @@ p, li, [data-testid="stSelectbox"] {font-size: 1.3rem;}
 .block-container {max-width: 740px; padding-top: 0.65rem;}
 h1, h2, h3 {text-align:center;}
 [data-testid="stWidgetLabel"] {justify-content:center;}
+/* 선택 목록: 짧은 너비, 가운데 배치, 큰 글씨 */
+[data-testid="stSelectbox"] {width:100% !important;max-width:360px !important;margin-left:auto !important;margin-right:auto !important;}
+[data-testid="stSelectbox"] [data-testid="stWidgetLabel"] {width:100%;justify-content:center;text-align:center;}
+[data-testid="stSelectbox"] [data-testid="stWidgetLabel"] p {width:100%;text-align:center;font-size:1.45rem !important;}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div {min-height:52px !important;}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div:first-child {text-align:center;justify-content:center;padding-left:30px;}
+[data-testid="stSelectbox"] [data-baseweb="select"] [data-baseweb="input"],
+[data-testid="stSelectbox"] [data-baseweb="select"] [data-baseweb="input"] input {font-size:1.5rem !important;text-align:center;}
+[data-testid="stSelectbox"] [data-baseweb="select"] div {font-family:'Jua','Apple SD Gothic Neo',sans-serif;font-size:1.5rem;}
+[data-baseweb="popover"] [role="option"] {font-family:'Jua','Apple SD Gothic Neo',sans-serif !important;font-size:1.45rem !important;justify-content:center;text-align:center;}
+@media(max-width:600px) { [data-testid="stSelectbox"] {max-width:300px !important;} }
 @media(max-width:600px) { .block-container {padding-left:1rem;padding-right:1rem;} .stButton button p {font-size:1.5rem;} }
 </style>""", unsafe_allow_html=True)
 
