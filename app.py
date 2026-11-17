@@ -268,10 +268,12 @@ def crop_photo(crop):
     encoded = CROP_PHOTOS.get(crop['name'])
     if encoded:
         source = encoded if encoded.startswith('https://') else 'data:image/jpeg;base64,' + encoded
-        st.markdown(f'<img src="{source}" alt="{html.escape(crop["name"])} 참고 사진" style="width:100%;height:190px;object-fit:cover;border-radius:14px;display:block;margin:0 auto 8px">', unsafe_allow_html=True)
+        credit = ' title="사진: imakatsu · CC BY 4.0 · 참고 사진"' if crop["name"] == "두릅" else ""
+        photo = f'<img src="{source}" alt="{html.escape(crop["name"])} 참고 사진"{credit} style="width:100%;height:190px;object-fit:cover;border-radius:14px;display:block;margin:0 auto 8px">'
+        if crop["name"] == "두릅":
+            photo = '<a href="https://commons.wikimedia.org/wiki/File:Dureup_(Korean_angelica-tree_shoots).jpg" target="_blank" rel="noopener noreferrer">' + photo + '</a>'
+        st.markdown(photo, unsafe_allow_html=True)
 
-    if encoded and crop["name"] == "두릅":
-        st.markdown("<div style='text-align:center;font-size:12px'>사진: <a href='https://commons.wikimedia.org/wiki/File:Dureup_(Korean_angelica-tree_shoots).jpg'>imakatsu</a> · <a href='https://creativecommons.org/licenses/by/4.0/'>CC BY 4.0</a> · 참고 사진</div>", unsafe_allow_html=True)
 
 def choose_crop(crop_id):
     st.session_state.chosen_crop = crop_id
