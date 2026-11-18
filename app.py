@@ -114,6 +114,10 @@ def database(url):
                 crops.c.end == date(year+1,12,31).isoformat(),
                 crops.c.delivery == date(year+2,1,7).isoformat())).values(
                 start=start.isoformat(), end=end.isoformat(), delivery=delivery.isoformat()))
+    # 대추 예약은 10월 31일에 마감합니다.
+    with engine.begin() as con:
+        con.execute(update(crops).where(crops.c.name == "대추").values(
+            end=date(year,10,31).isoformat()))
     return engine
 
 
