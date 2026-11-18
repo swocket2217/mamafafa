@@ -438,6 +438,21 @@ def account_page():
                         st.error("이 전화번호로 가입할 수 없습니다. 기존 계정이나 농장에 문의해 주세요.")
 
 
+@st.dialog("예약이 완료되었습니다")
+def booking_success(result):
+    if not result:
+        return
+    st.markdown("### 예약이 완료되었습니다.")
+    st.write(f"{result['crop']} {result['kg']}kg")
+    if st.button("내 주문함 가기", type="primary", use_container_width=True):
+        st.session_state.pop("booking_complete", None)
+        st.session_state.page = "주문"
+        st.rerun()
+    if st.button("닫기", use_container_width=True):
+        st.session_state.pop("booking_complete", None)
+        st.rerun()
+
+
 def crop_page():
     st.header("🛒 구매 예약")
     month = month_picker()
@@ -489,7 +504,7 @@ def crop_page():
                 else:
                     try:
                         oid = book(user, c["id"], kg, address.strip())
-                        st.session_state.flash = f"예약 완료! 예약번호 {oid[:8]} · ‘내 예약·구매’에서 확인하세요."
+                        st.session_state.booking_complete = {"id": oid, "crop": c["name"], "kg": kg}
                         st.rerun()
                     except ValueError as exc:
                         st.error(str(exc))
@@ -539,15 +554,18 @@ def calendar_page():
             if day.month == month.month:
                 for c in shown:
                     if c["start"] <= day.isoformat() <= c["end"]:
-                        events.append(f"예약 {html.escape(c['name'])}")
+                        events.append("예약")
                     if day.isoformat() == c["delivery"]:
-                        events.append(f"🚚 {html.escape(c['name'])}")
+                        events.append("배송")
+            has_reservation = "예약" in events
+            has_delivery = "배송" in events
+            events = (["●"] if has_reservation else []) + (["🚚"] if has_delivery else [])
             color = "#F0F6E9" if day == date.today() else "#FFFFFF"
             label = str(day.day) if day.month == month.month else ""
-            line.append(f'<td style="background:{color};padding:6px;border:1px solid #CCD7C5;vertical-align:top"><b>{label}</b><br><span style="font-size:16px">' + "<br>".join(events) + "</span></td>")
+            line.append(f'<td style="background:{color};height:65px;padding:4px;border:1px solid #CCD7C5;vertical-align:top"><b>{label}</b><br><span style="font-size:16px">' + "<br>".join(events) + "</span></td>")
         cells.append("<tr>" + "".join(line) + "</tr>")
-    st.write("예약: 주문 가능한 날 · 🚚: 보내드릴 예정일")
-    st.markdown('<div style="overflow-x:auto"><table style="width:100%;min-width:380px;border-collapse:collapse;table-layout:fixed"><thead><tr>' +
+    st.write("● 예약 가능한 날 · 🚚 배송 예정일 · 작물 이름은 아래에서 확인하세요")
+    st.markdown('<div style="overflow-x:auto"><table style="width:100%;min-width:280px;border-collapse:collapse;table-layout:fixed"><thead><tr>' +
                 "".join(f"<th>{day}</th>" for day in ["월", "화", "수", "목", "금", "토", "일"]) +
                 "</tr></thead><tbody>" + "".join(cells) + "</tbody></table></div>", unsafe_allow_html=True)
     for c in shown:
@@ -559,12 +577,12 @@ def calendar_page():
 
 
 def admin_page():
-    st.header("🔧 농장 관리")
+    st.header("사장님 관리실")
     if not is_admin:
         st.error("지정된 관리자 계정으로 로그인해야 합니다.")
         return
     st.caption("전체 예약과 배송지를 확인할 수 있는 지정 관리자 전용 화면입니다.")
-    tab_crops, tab_orders = st.tabs(["가격·수량·일정", "예약 처리"])
+    tab_crops, tab_orders = st.tabs(["작물 관리", "주문함"])
     with tab_crops:
         st.warning("재고는 ‘추가/차감’ 방식입니다. 배송일 변경은 새 예약에만 적용되며 기존 예약은 개별 변경하세요.")
         for c in all_crops:
@@ -600,6 +618,22 @@ def admin_page():
             with st.expander(f"{o['id'][:8]} | {o['crop_name']} {o['kg']}kg | {o['status']}"):
                 st.write(f"{o['name']} / {o['phone']} / {o['address']}")
                 st.write(f"작물 금액 {o['kg'] * o['unit_price']:,}원")
+                import csv
+                import io
+                sheet = io.StringIO()
+                writer = csv.writer(sheet)
+                writer.writerow(["주문번호", "작물", "수량(kg)", "금액(원)", "주문자", "전화번호", "배송주소", "배송예정일", "상태"])
+                writer.writerow([o["id"], o["crop_name"], o["kg"], o["kg"]*o["unit_price"],
+                    o["name"], o["phone"], o["address"], o["delivery"], o["status"]])
+                # Excel 수식으로 해석될 수 있는 사용자 입력 방지
+                safe_rows = list(csv.reader(io.StringIO(sheet.getvalue())))
+                safe_sheet = io.StringIO()
+                csv.writer(safe_sheet).writerows([
+                    [("'" + value if value.lstrip().startswith(("=", "+", "-", "@")) else value)
+                     for value in row] for row in safe_rows])
+                st.download_button("주문서 내려받기", safe_sheet.getvalue().encode("utf-8-sig"),
+                    file_name=f"order_{o['id'][:8]}.csv", mime="text/csv", key="invoice_"+o["id"])
+
                 if o["status"] == "취소":
                     continue
                 with st.form("status_" + o["id"]):
@@ -664,6 +698,9 @@ try:
         calendar_page()
 except SQLAlchemyError:
     st.error("저장소 처리 중 문제가 발생했습니다. 내 예약 내역을 확인한 뒤 다시 시도하거나 농장에 문의해 주세요.")
+if st.session_state.get("booking_complete"):
+    booking_success(st.session_state.pop("booking_complete"))
+
 st.divider()
 st.caption(f"🌾 {FARM} · 예약은 간편하게, 배송은 정성껏 · ☎ {CONTACT}")
 
