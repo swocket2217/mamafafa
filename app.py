@@ -434,9 +434,11 @@ def account_page():
 def crop_page():
     st.header("🛒 구매 예약")
     month = month_picker()
-    available = [c for c in all_crops if in_month(c, month)]
+    today = date.today().isoformat()
+    available = [c for c in all_crops if in_month(c, month)
+                 and c["start"] <= today <= c["end"] and c["stock"] > 0]
     if not available:
-        st.info("이 달에 예약할 작물이 없어요. 다른 달을 눌러 주세요.")
+        st.info("선택한 달의 작물 중 지금 예약할 수 있는 작물이 없어요.")
         return
     ids = [c["id"] for c in available]
     initial = ids.index(st.session_state.get("chosen_crop")) if st.session_state.get("chosen_crop") in ids else 0
@@ -455,7 +457,8 @@ def crop_page():
         st.write(f"📅 예약: {c['start']} ~ {c['end']}")
         st.write(f"🚚 배송 예정: {c['delivery']} (농장 사정에 따라 변동 가능)")
     if not c["start"] <= date.today().isoformat() <= c["end"]:
-        return  # 예약 기간 밖의 접수는 계속 차단합니다.
+        st.info("이 작물은 예약이 끝났어요. 다른 작물을 골라 주세요.")
+        return
     step = 5 if c["name"] in ("쌀", "고춧가루") else 3
     limit = 100 if c["name"] in ("쌀", "고춧가루") else 30
     bought = sum(o["kg"] for o in read_rows(orders, orders.c.user_id == uid)
@@ -624,6 +627,14 @@ def browse_page():
         with st.container(border=True):
             crop_photo(c)
             st.subheader(c["name"])
+            if c["start"] <= date.today().isoformat() <= c["end"] and c["stock"] > 0:
+                st.write("지금 예약할 수 있어요")
+            elif c["stock"] <= 0:
+                st.write("품절이에요")
+            elif date.today().isoformat() > c["end"]:
+                st.write("예약이 끝났어요")
+            else:
+                st.write("아직 예약 전이에요")
             st.write(f"1kg {c['price']:,}원 · 남은 수량 {c['stock']:,}kg")
             st.write(f"예약 {c['start']} ~ {c['end']}")
             st.write(f"🚚 배송 예정 {c['delivery']}")
