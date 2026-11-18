@@ -317,17 +317,20 @@ def go(page):
 
 
 def month_picker():
-    if "view_month" not in st.session_state:
-        st.session_state.view_month = date.today().replace(day=1)
+    # 현재 등록한 판매 일정은 2026년입니다. 다음 해 운영 시 이 값을 갱신하세요.
+    first, last = date(2026, 1, 1), date(2026, 12, 1)
+    current = st.session_state.get("view_month", date.today().replace(day=1))
+    st.session_state.view_month = min(last, max(first, current))
     def move(delta):
         current = st.session_state.view_month
         n = current.year * 12 + current.month - 1 + delta
-        st.session_state.view_month = date(n // 12, n % 12 + 1, 1)
-    left, middle, right = st.columns([1, 2, 1])
-    left.button("◀ 이전", on_click=move, args=(-1,), use_container_width=True)
+        target = date(n // 12, n % 12 + 1, 1)
+        st.session_state.view_month = min(last, max(first, target))
     current = st.session_state.view_month
+    left, middle, right = st.columns([1, 2, 1])
+    left.button("◀ 이전", on_click=move, args=(-1,), disabled=current <= first, use_container_width=True)
     middle.markdown(f"<h3 style='text-align:center'>{current.year}년 {current.month}월</h3>", unsafe_allow_html=True)
-    right.button("다음 ▶", on_click=move, args=(1,), use_container_width=True)
+    right.button("다음 ▶", on_click=move, args=(1,), disabled=current >= last, use_container_width=True)
     return current
 
 
